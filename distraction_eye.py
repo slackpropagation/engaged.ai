@@ -1,26 +1,39 @@
-
-
 def is_distracted_by_eye_position(face_landmarks, width):
     """
-    Determines if the user is distracted based on the nose position relative to the eyes.
-
-    Args:
-        face_landmarks: Landmarks for the detected face from MediaPipe.
-        width: Width of the video frame.
-
-    Returns:
-        True if the user is likely distracted (looking away), False if focused.
+    Determines if the user is distracted based on iris position within the eye frame.
+    Tracks both horizontal and vertical gaze.
     """
-    # Nose tip (landmark 1), left eye (33), right eye (263)
-    nose = face_landmarks.landmark[1]
-    left_eye = face_landmarks.landmark[33]
-    right_eye = face_landmarks.landmark[263]
+    def is_gaze_off(iris, inner, outer, top, bottom):
+        iris_x = iris.x
+        iris_y = iris.y
 
-    # Convert to pixel coordinates
-    nose_x = int(nose.x * width)
-    left_eye_x = int(left_eye.x * width)
-    right_eye_x = int(right_eye.x * width)
+        eye_left = min(inner.x, outer.x)
+        eye_right = max(inner.x, outer.x)
+        eye_top = min(top.y, bottom.y)
+        eye_bottom = max(top.y, bottom.y)
 
-    # Check if nose is roughly centered between the eyes
-    center_eye_x = (left_eye_x + right_eye_x) // 2
-    return abs(nose_x - center_eye_x) >= 40
+        x_ratio = (iris_x - eye_left) / (eye_right - eye_left + 1e-6)
+        y_ratio = (iris_y - eye_top) / (eye_bottom - eye_top + 1e-6)
+
+        return (
+            x_ratio < 0.2 or x_ratio > 0.8 or
+            y_ratio < 0.2 or y_ratio > 0.8
+        )
+
+    left_iris = face_landmarks.landmark[468]
+    right_iris = face_landmarks.landmark[473]
+
+    left_eye_inner = face_landmarks.landmark[133]
+    left_eye_outer = face_landmarks.landmark[33]
+    left_eye_top = face_landmarks.landmark[159]
+    left_eye_bottom = face_landmarks.landmark[145]
+
+    right_eye_inner = face_landmarks.landmark[362]
+    right_eye_outer = face_landmarks.landmark[263]
+    right_eye_top = face_landmarks.landmark[386]
+    right_eye_bottom = face_landmarks.landmark[374]
+
+    return (
+        is_gaze_off(left_iris, left_eye_inner, left_eye_outer, left_eye_top, left_eye_bottom) or
+        is_gaze_off(right_iris, right_eye_inner, right_eye_outer, right_eye_top, right_eye_bottom)
+    )

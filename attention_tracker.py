@@ -9,7 +9,11 @@ from logger import SessionLogger
 import threading
 
 mp_face_mesh = mp.solutions.face_mesh
-face_mesh = mp_face_mesh.FaceMesh(static_image_mode=False, max_num_faces=1)
+face_mesh = mp_face_mesh.FaceMesh(
+    static_image_mode=False,
+    max_num_faces=1,
+    refine_landmarks=True  # Enables iris landmarks (468–478)
+)
 
 idle_detector = IdleDistractionDetector(timeout_seconds=5)
 session_logger = SessionLogger()
