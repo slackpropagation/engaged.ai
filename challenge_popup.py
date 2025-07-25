@@ -32,11 +32,17 @@ class ChallengePopup(QWidget):
         self.try_button.setDisabled(True)
 
 def show_challenge():
-    app = QApplication(sys.argv)
-    popup = ChallengePopup(
-        question="What is 5 + 3?",
-        correct_answer="8",
-        explanation="Because 5 and 3 together make 8."
-    )
-    popup.show()
-    sys.exit(app.exec_())
+    def run():
+        app = QApplication(sys.argv)
+        popup = ChallengePopup(
+            question="What is 5 + 3?",
+            correct_answer="8",
+            explanation="Because 5 and 3 together make 8."
+        )
+        popup.show()
+        app.exec_()
+
+    import multiprocessing
+    multiprocessing.set_start_method("spawn", force=True)
+    p = multiprocessing.Process(target=run)
+    p.start()
