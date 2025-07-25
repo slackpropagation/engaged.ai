@@ -1,6 +1,7 @@
 # attention_tracker.py
 import cv2
 import mediapipe as mp
+from distraction_eye import is_distracted_by_eye_position
 
 mp_face_mesh = mp.solutions.face_mesh
 face_mesh = mp_face_mesh.FaceMesh(static_image_mode=False, max_num_faces=1)
@@ -31,19 +32,7 @@ while cap.isOpened():
     distracted = True
     if results.multi_face_landmarks:
         for face_landmarks in results.multi_face_landmarks:
-            # Nose tip (landmark 1), left eye (33), right eye (263)
-            nose = face_landmarks.landmark[1]
-            left_eye = face_landmarks.landmark[33]
-            right_eye = face_landmarks.landmark[263]
-
-            # Convert to pixel coordinates
-            nose_x = int(nose.x * width)
-            left_eye_x = int(left_eye.x * width)
-            right_eye_x = int(right_eye.x * width)
-
-            # Check if nose is roughly centered between eyes (facing forward)
-            center_eye_x = (left_eye_x + right_eye_x) // 2
-            if abs(nose_x - center_eye_x) < 40:
+            if not is_distracted_by_eye_position(face_landmarks, width):
                 distracted = False
 
     if distracted:
