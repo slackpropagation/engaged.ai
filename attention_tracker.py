@@ -82,8 +82,8 @@ while True:
         session_logger.log_distraction("idle")
         threading.Thread(target=show_challenge).start()
 
-    # If face landmarks found, check distractions
     if face_present:
+        distraction_flag = False  # reset per-frame distraction indicator
         for face_landmarks in results.multi_face_landmarks:
             # Compute bounding box for gaze estimation
             xs = [lm.x for lm in face_landmarks.landmark]
@@ -100,11 +100,11 @@ while True:
             # ----- Gaze-based distraction with voting -----
             gaze_vec = estimate_gaze_mobile(frame, box)
             if is_distracted_by_gaze_mobile(gaze_vec):
+                distraction_flag = True
                 gaze_counter = min(gaze_counter + 1, gaze_required)
             else:
                 gaze_counter = max(gaze_counter - 1, 0)
 
-            # Update gaze_status when counter crosses threshold
             if not gaze_status and gaze_counter >= gaze_required:
                 gaze_status = True
                 session_logger.log_distraction("gaze")
@@ -112,13 +112,10 @@ while True:
             elif gaze_status and gaze_counter == 0:
                 gaze_status = False
 
-            # Draw current gaze state label
             if gaze_status:
+                distraction_flag = True
                 cv2.putText(frame, "🔴 Gaze Distraction", (20, 50),
                             cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 0, 255), 3)
-            else:
-                cv2.putText(frame, "🟢 Focused", (20, 50),
-                            cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 255, 0), 3)
 
             # Eye position distraction
             if is_distracted_by_eye_position(face_landmarks, width):
@@ -126,6 +123,7 @@ while True:
                             cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 0, 255), 3)
                 session_logger.log_distraction("eye")
                 threading.Thread(target=show_challenge).start()
+                distraction_flag = True
                 break
 
             # Head tilt distraction
@@ -134,9 +132,11 @@ while True:
                             cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 0, 255), 3)
                 session_logger.log_distraction("head_tilt")
                 threading.Thread(target=show_challenge).start()
+                distraction_flag = True
                 break
 
-            # Focused
+        # If no distraction flagged, show focused label
+        if not distraction_flag:
             cv2.putText(frame, "🟢 Focused", (20, 50),
                         cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 255, 0), 3)
 

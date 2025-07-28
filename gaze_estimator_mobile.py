@@ -1,5 +1,3 @@
-# gaze_estimator_mobile.py
-
 import os
 import sys
 import cv2
@@ -8,9 +6,9 @@ from PIL import Image
 import onnxruntime as ort
 from torchvision import transforms
 
-# ------------------------------------------------------------------ #
+# -------------------------------------------------------
 # Locate ONNX model inside gaze-estimation/weights
-# ------------------------------------------------------------------ #
+# -------------------------------------------------------
 BASE_DIR = os.path.dirname(__file__)
 WEIGHTS_DIR = os.path.join(BASE_DIR, "gaze-estimation", "weights")
 MODEL_PATH = os.path.join(WEIGHTS_DIR, "mobilenetv2_gaze.onnx")
@@ -23,19 +21,18 @@ print(f"✅ Loading gaze model from {MODEL_PATH}")
 session = ort.InferenceSession(MODEL_PATH, providers=["CPUExecutionProvider"])
 input_name = session.get_inputs()[0].name
 
-# ------------------------------------------------------------------ #
-# Pre-processing transform
-# ------------------------------------------------------------------ #
-# The MobileGaze ONNX model expects 448×448 input
+# -------------------------------------------------------
+# Preprocessing transform
+# -------------------------------------------------------
 transform = transforms.Compose([
     transforms.Resize((448, 448)),
     transforms.ToTensor(),
     transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
 ])
 
-# ------------------------------------------------------------------ #
-# Public helpers
-# ------------------------------------------------------------------ #
+# -------------------------------------------------------
+# Public helper functions
+# -------------------------------------------------------
 def estimate_gaze_mobile(frame_bgr: np.ndarray, face_box: tuple) -> np.ndarray:
     """
     Estimate gaze (yaw, pitch) using the ONNX MobileGaze model.
@@ -61,18 +58,18 @@ def estimate_gaze_mobile(frame_bgr: np.ndarray, face_box: tuple) -> np.ndarray:
 
 def is_distracted_by_gaze_mobile(
     yaw_pitch: np.ndarray,
-    yaw_thresh: float = 5.0,   # side-to-side sensitivity
-    up_thresh: float = 1.0,    # smaller value catches slight upward gaze
-    down_thresh: float = 3.0,  # larger value allows a bit more downward drift
+    yaw_thresh: float = 5.0,
+    up_thresh: float = 1.5,
+    down_thresh: float = 3.0
 ) -> bool:
     """
-    Return True if yaw or pitch exceeds asymmetric thresholds.
-    • Yaw is symmetrical (left/right).
-    • Pitch uses separate positive (up) and negative (down) limits.
+    Returns True if absolute yaw exceeds yaw_thresh,
+    or pitch above up_thresh (looking up),
+    or pitch below -down_thresh (looking down).
     """
     yaw, pitch = float(yaw_pitch[0]), float(yaw_pitch[1])
     return (
-        abs(yaw) > yaw_thresh or  # left / right
-        pitch > up_thresh or      # looking up
-        pitch < -down_thresh      # looking down
+        abs(yaw) > yaw_thresh or
+        pitch > up_thresh or
+        pitch < -down_thresh
     )
