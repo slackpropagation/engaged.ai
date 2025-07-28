@@ -5,6 +5,8 @@ import os
 import cv2
 import threading
 import numpy as np
+import time
+from collections import deque
 
 # Ensure local modules and repo are importable
 PROJECT_DIR = os.path.dirname(__file__)
@@ -36,6 +38,14 @@ gaze_counter = 0          # consecutive distracted frames
 gaze_required = 3         # frames required to confirm state change
 gaze_status = False       # True = currently distracted by gaze
 
+# ---- Rolling distraction window (60 s) ----
+WINDOW_SEC = 60
+ALERT_SEC  = 50
+distraction_segments = deque()   # (timestamp_end, duration) tuples
+rolling_distraction  = 0.0       # seconds distracted in last WINDOW_SEC
+prev_distraction     = False     # distraction state last frame
+last_ts              = time.time()
+
 # Prepare video capture
 cap = cv2.VideoCapture(0)
 if not cap.isOpened():
@@ -51,6 +61,9 @@ while True:
     ret, frame = cap.read()
     if not ret:
         break
+    now = time.time()
+    dt  = now - last_ts
+    last_ts = now
 
     # Mirror for selfie view
     frame = cv2.flip(frame, 1)
@@ -126,6 +139,30 @@ while True:
             # Focused
             cv2.putText(frame, "🟢 Focused", (20, 50),
                         cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 255, 0), 3)
+
+    # ---------------- Rolling‑window bookkeeping ----------------
+    current_distraction = (
+        gaze_status or
+        is_distracted_by_eye_position(face_landmarks, width) or
+        is_distracted_by_head_tilt(face_landmarks, width, height) or
+        idle_detector.is_idle()
+    ) if face_present else idle_detector.is_idle()
+
+    # Accumulate distraction time
+    if prev_distraction:
+        distraction_segments.append((now, dt))
+        rolling_distraction += dt
+
+    prev_distraction = current_distraction
+
+    # Prune segments older than WINDOW_SEC
+    while distraction_segments and distraction_segments[0][0] < now - WINDOW_SEC:
+        rolling_distraction -= distraction_segments.popleft()[1]
+
+    # Alert if distracted > ALERT_SEC within WINDOW_SEC
+    if rolling_distraction >= ALERT_SEC:
+        cv2.putText(frame, f"⚠️ Distracted {int(rolling_distraction)}s / {WINDOW_SEC}s", (20, height - 50),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 255), 2)
 
     # Display frame
     cv2.imshow("Engaged.ai - Attention Tracker", frame)
