@@ -16,8 +16,8 @@ def is_distracted_by_eye_position(face_landmarks, width):
         y_ratio = (iris_y - eye_top) / (eye_bottom - eye_top + 1e-6)
 
         return (
-            x_ratio < 0.2 or x_ratio > 0.8 or
-            y_ratio < 0.2 or y_ratio > 0.8
+            x_ratio < 0.3 or x_ratio > 0.7 or
+            y_ratio < 0.3 or y_ratio > 0.7
         )
 
     left_iris = face_landmarks.landmark[468]
