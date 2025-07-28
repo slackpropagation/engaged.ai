@@ -59,9 +59,20 @@ def estimate_gaze_mobile(frame_bgr: np.ndarray, face_box: tuple) -> np.ndarray:
     ort_out = session.run(None, {input_name: tensor})[0].squeeze()
     return ort_out
 
-def is_distracted_by_gaze_mobile(yaw_pitch: np.ndarray, yaw_thresh: float = 10.0, pitch_thresh: float = 10.0) -> bool:
+def is_distracted_by_gaze_mobile(
+    yaw_pitch: np.ndarray,
+    yaw_thresh: float = 5.0,   # side-to-side sensitivity
+    up_thresh: float = 1.0,    # smaller value catches slight upward gaze
+    down_thresh: float = 3.0,  # larger value allows a bit more downward drift
+) -> bool:
     """
-    Returns True if absolute yaw or pitch exceeds threshold.
+    Return True if yaw or pitch exceeds asymmetric thresholds.
+    • Yaw is symmetrical (left/right).
+    • Pitch uses separate positive (up) and negative (down) limits.
     """
     yaw, pitch = float(yaw_pitch[0]), float(yaw_pitch[1])
-    return abs(yaw) > yaw_thresh or abs(pitch) > pitch_thresh
+    return (
+        abs(yaw) > yaw_thresh or  # left / right
+        pitch > up_thresh or      # looking up
+        pitch < -down_thresh      # looking down
+    )

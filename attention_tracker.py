@@ -29,7 +29,12 @@ face_mesh = mp_face_mesh.FaceMesh(
 
 # Initialize detectors and logger
 idle_detector = IdleDistractionDetector(timeout_seconds=5)
+
 session_logger = SessionLogger()
+# ---- Gaze voting state ----
+gaze_counter = 0          # consecutive distracted frames
+gaze_required = 3         # frames required to confirm state change
+gaze_status = False       # True = currently distracted by gaze
 
 # Prepare video capture
 cap = cv2.VideoCapture(0)
@@ -79,14 +84,28 @@ while True:
                 int((y_max - y_min) * height)
             )
 
-            # Gaze-based distraction
+            # ----- Gaze-based distraction with voting -----
             gaze_vec = estimate_gaze_mobile(frame, box)
             if is_distracted_by_gaze_mobile(gaze_vec):
-                cv2.putText(frame, "🔴 Gaze Distraction", (20, 50),
-                            cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 0, 255), 3)
+                gaze_counter = min(gaze_counter + 1, gaze_required)
+            else:
+                gaze_counter = max(gaze_counter - 1, 0)
+
+            # Update gaze_status when counter crosses threshold
+            if not gaze_status and gaze_counter >= gaze_required:
+                gaze_status = True
                 session_logger.log_distraction("gaze")
                 threading.Thread(target=show_challenge).start()
-                break
+            elif gaze_status and gaze_counter == 0:
+                gaze_status = False
+
+            # Draw current gaze state label
+            if gaze_status:
+                cv2.putText(frame, "🔴 Gaze Distraction", (20, 50),
+                            cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 0, 255), 3)
+            else:
+                cv2.putText(frame, "🟢 Focused", (20, 50),
+                            cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 255, 0), 3)
 
             # Eye position distraction
             if is_distracted_by_eye_position(face_landmarks, width):
